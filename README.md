@@ -11,15 +11,16 @@ IDK, it would be really nice of you to contribute, check the poorly written [CON
 
 # Roadmap
 
-- [ ] Search
-- [ ] Get artist
-- [ ] Get songs for the artist specified
-- [ ] Get referents
-- [ ] Get annotation
-- [ ] Get song
-- [ ] Web Pages (lyrics and stuff)
+- [x] Search
+- [x] Get artist
+- [x] Get artist's songs
+- [x] Get annotation
+- [x] Get song
+- [x] Lyrics
+- [ ] Pagination
+- [ ] Account
 - [ ] Find missing shit using [genius-lyrics](https://www.npmjs.com/package/genius-lyrics) as a reference
-- [ ] Lyrics timing
+- [ ] Lyrics timing?
 
 # Usage
 

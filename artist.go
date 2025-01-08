@@ -74,17 +74,46 @@ type User struct {
 	} `json:"current_user_metadata,omitempty"`
 }
 
-type ArtistParams struct {
-	TextFormat string `url:"text_format,omitempty"`
+func (s *ArtistsService) Get(id string) (Artist, error) {
+	s.gClient.appendToPath(id)
+
+	res, err := s.gClient.callEndpoint()
+	if err != nil {
+		return Artist{}, err
+	}
+
+	return *res.Response.Artist, nil
 }
 
-func (s *ArtistsService) Get(id string) (*Artist, error) {
-	var err error
-	// params := &ArtistParams{"plain"}
-	res := new(ApiResponse)
-	// s.client.base.Path("artists/").Get(ID).QueryStruct(params).Receive(res, err)
+func (s *ArtistsService) GetSongs(artistId string, sort ArtistSongsSort) ([]Song, error) {
+	return s.getArtistSongs(getArtistSongsParams{
+		artistId: artistId,
+		sort:     sort,
+	})
+}
+
+type ArtistSongsSort string
+
+const (
+	ArtistSongsSortTitle      ArtistSongsSort = "title"
+	ArtistSongsSortPopularity ArtistSongsSort = "popularity"
+)
+
+type getArtistSongsParams struct {
+	artistId string
+	sort     ArtistSongsSort
+}
+
+func (s *ArtistsService) getArtistSongs(params getArtistSongsParams) ([]Song, error) {
+	s.gClient.appendToPath(params.artistId)
+	s.gClient.appendToPath("/songs")
+	s.gClient.setQueryParam("sort", string(params.sort))
+	s.gClient.setQueryParam("per_page", "25")
+
+	res, err := s.gClient.callEndpoint()
 	if err != nil {
 		return nil, err
 	}
-	return res.Response.Artist, nil
+
+	return res.Response.Songs, nil
 }

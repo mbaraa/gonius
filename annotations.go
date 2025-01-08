@@ -26,11 +26,10 @@ type Annotation struct {
 			Following bool `json:"following,omitempty"`
 		} `json:"interactions,omitempty"`
 	} `json:"current_user_metadata,omitempty"`
-	Authors          []Author  `json:"authors,omitempty"`
-	CosignedBy       []any     `json:"cosigned_by,omitempty"`
-	RejectionComment string    `json:"rejection_comment,omitempty"`
-	VerifiedBy       *User     `json:"verified_by,omitempty"`
-	Referent         *Referent `json:"referent,omitempty"`
+	Authors          []Author `json:"authors,omitempty"`
+	CosignedBy       []any    `json:"cosigned_by,omitempty"`
+	RejectionComment string   `json:"rejection_comment,omitempty"`
+	VerifiedBy       *User    `json:"verified_by,omitempty"`
 }
 
 type Author struct {
@@ -39,17 +38,13 @@ type Author struct {
 	User        *User   `json:"user,omitempty"`
 }
 
-type AnnotationsParams struct {
-	TextFormat string `url:"text_format,omitempty"`
-}
+func (s *AnnotationsService) Get(id string) (Annotation, error) {
+	s.gClient.appendToPath(id)
 
-func (s *AnnotationsService) Get(id string) (*Annotation, error) {
-	var err error
-	// params := &AnnotationsParams{"plain"}
-	res := new(ApiResponse)
-	// s.client.base.Path("annotations/").Get(ID).QueryStruct(params).Receive(res, err)
+	res, err := s.gClient.callEndpoint()
 	if err != nil {
-		return nil, err
+		return Annotation{}, err
 	}
-	return res.Response.Annotation, nil
+
+	return *res.Response.Annotation, nil
 }

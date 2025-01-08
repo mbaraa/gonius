@@ -13,10 +13,12 @@ type Client struct {
 	Annotations *AnnotationsService
 	Artists     *ArtistsService
 	Lyrics      *LyricsService
-	Referents   *ReferentsService
 	Search      *SearchService
-	// Songs access songs from genius.
-	Songs *SongsService
+	Songs       *SongsService
+}
+
+func (c *Client) SetPageSize() {
+	// per_page=20
 }
 
 // NewClient initializes the genius [Client] with the given access token to interact with different api.genius.com calls.
@@ -27,10 +29,13 @@ func NewClient(accessToken string) *Client {
 
 	c := &Client{}
 	c.Account = &AccountService{}
-	c.Annotations = &AnnotationsService{}
-	c.Artists = &ArtistsService{}
+	c.Annotations = &AnnotationsService{
+		gClient: newApiClient(http.MethodGet, baseGeniusUrl+"annotations/", accessToken, nil),
+	}
+	c.Artists = &ArtistsService{
+		gClient: newApiClient(http.MethodGet, baseGeniusUrl+"artists/", accessToken, nil),
+	}
 	c.Lyrics = lyricsService
-	c.Referents = &ReferentsService{}
 	c.Search = &SearchService{
 		gClient: newApiClient(http.MethodGet, baseGeniusUrl+"search/", accessToken, nil),
 	}
@@ -49,16 +54,17 @@ type ApiResponse struct {
 	} `json:"meta,omitempty"`
 	Response *struct {
 		Annotation *Annotation `json:"annotation,omitempty"`
-		Referents  []Referent  `json:"referents,omitempty"`
 		Song       *Song       `json:"song,omitempty"`
+		Songs      []Song      `json:"songs,omitempty"`
 		Artist     *Artist     `json:"artist,omitempty"`
 		Hits       []Hit       `json:"hits,omitempty"`
 	} `json:"response,omitempty"`
 }
 
 type apiClient struct {
-	client *http.Client
-	req    *http.Request
+	client      *http.Client
+	req         *http.Request
+	initialPath string
 }
 
 func newApiClient(method, requestPath, token string, body io.Reader) *apiClient {
@@ -68,8 +74,9 @@ func newApiClient(method, requestPath, token string, body io.Reader) *apiClient 
 	}
 
 	a := &apiClient{
-		client: &http.Client{},
-		req:    req,
+		client:      &http.Client{},
+		req:         req,
+		initialPath: requestPath,
 	}
 	a.setHeader("Authorization", "Bearer "+token)
 	// setting response text_format to plain, so it's readable by the application,
@@ -103,15 +110,20 @@ func (a *apiClient) setQueryParam(key, value string) error {
 
 func (a *apiClient) setHeader(key, value string) error {
 	a.req.Header.Set(key, value)
-
 	return nil
 }
 
 func (a *apiClient) callEndpoint() (ApiResponse, error) {
+	defer a.reset()
+
 	var res ApiResponse
 	resp, err := a.client.Do(a.req)
 	if err != nil {
 		return ApiResponse{}, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return ApiResponse{}, ErrInvalidToken
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&res)
@@ -119,5 +131,17 @@ func (a *apiClient) callEndpoint() (ApiResponse, error) {
 		return ApiResponse{}, err
 	}
 
-	return res, nil
+	switch res.Meta.Status {
+	case http.StatusOK:
+		return res, nil
+	case http.StatusNotFound:
+		return ApiResponse{}, ErrNotFound
+	default:
+		return ApiResponse{}, ErrApiError
+	}
+}
+
+func (a *apiClient) reset() {
+	a.req.URL.Path = a.initialPath
+	a.setQueryParam("text_format", "plain")
 }
