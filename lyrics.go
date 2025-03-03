@@ -12,8 +12,7 @@ import (
 
 var (
 	// sectionsPattern used to identify special parts of the lyrics.
-	sectionsPattern = regexp.MustCompile(`(\[Chorus\]|\[Pre-Chorus\]|\[Outro\]|\[Intro\]|\[Verse \d+\]|\[Bridge\]|\[Produced.*\])`)
-	linesPattern    = regexp.MustCompile(`\n{2,}|\r{2,}`)
+	sectionsPattern = regexp.MustCompile(`(\[.*\])`)
 )
 
 // LyricsService fetches lyrics of a song.
@@ -34,15 +33,17 @@ func (l *Lyrics) Parts() []string {
 	return l.parts
 }
 
-func newLyrics(text []string) Lyrics {
-	// sectionsCount := sectionsPattern.FindAllString(strings.Join(text, ""), -1)
-	fixedLyrics := make([]string, 0, len(text))
-	for _, lyric := range text {
-		lyric = strings.TrimSpace(strings.Trim(strings.Trim(lyric, "\r"), "\n"))
-		if sectionsPattern.MatchString(lyric) {
-			fixedLyrics = append(fixedLyrics, "\n"+lyric)
+func newLyrics(text string) Lyrics {
+	lyricsParts := strings.Split(text, "\n")
+	fixedLyrics := make([]string, 0, len(lyricsParts))
+	for _, part := range lyricsParts {
+		if part == "" {
+			continue
+		}
+		if sectionsPattern.MatchString(part) {
+			fixedLyrics = append(fixedLyrics, "\n"+part)
 		} else {
-			fixedLyrics = append(fixedLyrics, lyric)
+			fixedLyrics = append(fixedLyrics, part)
 		}
 	}
 
@@ -62,15 +63,18 @@ func (l *LyricsService) FindForSong(songUrl string) (Lyrics, error) {
 	c.WithTransport(noSSL)
 	c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 1})
 
-	lyricsRaw := make([]string, 0)
+	lyricsRaw := new(strings.Builder)
 
 	c.OnHTML("[data-lyrics-container=\"true\"]", func(e *colly.HTMLElement) {
 		for _, node := range e.DOM.Nodes {
 			for child := range node.Descendants() {
 				switch child.Type {
 				case html.ElementNode:
+					if child.Data == "br" {
+						lyricsRaw.WriteRune('\n')
+					}
 				default:
-					lyricsRaw = append(lyricsRaw, child.Data)
+					lyricsRaw.WriteString(child.Data)
 				}
 			}
 		}
@@ -81,10 +85,5 @@ func (l *LyricsService) FindForSong(songUrl string) (Lyrics, error) {
 		return Lyrics{}, err
 	}
 
-	if len(lyricsRaw) > 0 &&
-		lyricsRaw[0] == "" || lyricsRaw[0] == " " || lyricsRaw[0] == "\n" || lyricsRaw[0] == "\r" {
-		lyricsRaw = lyricsRaw[1:]
-	}
-
-	return newLyrics(lyricsRaw), nil
+	return newLyrics(lyricsRaw.String()), nil
 }
